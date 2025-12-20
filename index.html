@@ -2,38 +2,156 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Copiar Pix</title>
+  <title>Pix</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+
   <style>
+    :root {
+      --bg: #f5f5f5;
+      --card: #ffffff;
+      --text: #000000;
+      --border: #dddddd;
+    }
+
+    body.dark {
+      --bg: #121212;
+      --card: #1e1e1e;
+      --text: #ffffff;
+      --border: #333333;
+    }
+
     body {
       margin: 0;
-      height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      padding: 24px;
       font-family: Arial, sans-serif;
-      background: #f5f5f5;
+      background: var(--bg);
+      color: var(--text);
+      transition: background 0.2s, color 0.2s;
     }
-    button {
-      font-size: 18px;
-      padding: 16px 24px;
+
+    h1 {
+      font-size: 20px;
+      margin-bottom: 16px;
+    }
+
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .toggle {
       cursor: pointer;
+      user-select: none;
+      font-size: 14px;
+    }
+
+    .pix-option {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 16px;
+      margin-bottom: 12px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .pix-option:hover {
+      background: rgba(0,0,0,0.05);
+    }
+
+    body.dark .pix-option:hover {
+      background: rgba(255,255,255,0.05);
+    }
+
+    .pix-label {
+      font-weight: bold;
+    }
+
+    .pix-value {
+      font-size: 14px;
+      opacity: 0.8;
+      word-break: break-all;
+    }
+
+    .checkbox {
+      margin: 20px 0;
     }
   </style>
 </head>
 <body>
-  <button onclick="copiarPix()">Copiar chave Pix</button>
 
-  <script>
-    function copiarPix() {
-      navigator.clipboard.writeText("53984851730")
-        .then(() => {
+<div class="top-bar">
+  <h1>Selecione a chave Pix</h1>
+  <div class="toggle" onclick="toggleDarkMode()">🌙 Dark</div>
+</div>
+
+<div class="pix-option"
+     onclick="copiarPix('Nubank','53984851730')">
+  <div class="pix-label">Pix — Nubank</div>
+  <div class="pix-value">53984851730</div>
+</div>
+
+<div class="pix-option"
+     onclick="copiarPix('Inter','iigabrields@gmail.com')">
+  <div class="pix-label">Pix — Inter</div>
+  <div class="pix-value">iigabrields@gmail.com</div>
+</div>
+
+<div class="checkbox">
+  <label>
+    <input type="checkbox" id="enviarWhatsapp">
+    Enviar comprovante via WhatsApp
+  </label>
+</div>
+
+<script>
+  const TELEFONE_WHATSAPP = "5553984851730";
+
+  function copiarPix(alias, chave) {
+    navigator.clipboard.writeText(chave)
+      .then(() => {
+        if (document.getElementById("enviarWhatsapp").checked) {
+          abrirWhatsapp(alias);
+        } else {
           alert("Chave Pix copiada");
-        })
-        .catch(() => {
-          alert("Não foi possível copiar");
-        });
-    }
-  </script>
+        }
+      })
+      .catch(() => {
+        alert("Não foi possível copiar a chave Pix");
+      });
+  }
+
+  function abrirWhatsapp(alias) {
+    const agora = new Date();
+    const hh = String(agora.getHours()).padStart(2, '0');
+    const mm = String(agora.getMinutes()).padStart(2, '0');
+
+    const mensagem =
+      `Pagamento iniciado via pix ${alias} às ${hh}:${mm}, ` +
+      `segue o comprovante (pague e compartilhe o comprovante na conversa)`;
+
+    const url =
+      `https://wa.me/${TELEFONE_WHATSAPP}?text=` +
+      encodeURIComponent(mensagem);
+
+    window.location.href = url;
+  }
+
+  function toggleDarkMode() {
+    document.body.classList.toggle("dark");
+    localStorage.setItem(
+      "darkMode",
+      document.body.classList.contains("dark") ? "1" : "0"
+    );
+  }
+
+  // restaura preferência
+  if (localStorage.getItem("darkMode") === "1") {
+    document.body.classList.add("dark");
+  }
+</script>
+
 </body>
-</
+</html>
