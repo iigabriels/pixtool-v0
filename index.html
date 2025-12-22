@@ -2,155 +2,138 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Pix</title>
+  <title>Gerador Pix</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
   <style>
     :root {
-      --bg: #f5f5f5;
-      --card: #ffffff;
-      --text: #000000;
-      --border: #dddddd;
+      --bg:#f5f5f5; --card:#fff; --text:#000; --border:#ddd;
     }
-
     body.dark {
-      --bg: #121212;
-      --card: #1e1e1e;
-      --text: #ffffff;
-      --border: #333333;
+      --bg:#121212; --card:#1e1e1e; --text:#fff; --border:#333;
     }
-
     body {
-      margin: 0;
-      padding: 24px;
-      font-family: Arial, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      transition: background 0.2s, color 0.2s;
+      margin:0; padding:24px; font-family:Arial,sans-serif;
+      background:var(--bg); color:var(--text);
     }
-
-    h1 {
-      font-size: 20px;
-      margin-bottom: 16px;
+    .card {
+      background:var(--card); border:1px solid var(--border);
+      border-radius:8px; padding:16px; margin-bottom:16px;
     }
-
-    .top-bar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 16px;
+    h1 { font-size:20px; margin-bottom:12px; }
+    label { display:block; margin-top:12px; font-weight:bold; }
+    select, input, button {
+      width:100%; padding:10px; margin-top:6px;
+      font-size:16px;
     }
-
-    .toggle {
-      cursor: pointer;
-      user-select: none;
-      font-size: 14px;
+    button { cursor:pointer; }
+    img { display:block; margin:16px auto; }
+    textarea {
+      width:100%; height:120px; margin-top:12px;
+      font-size:12px;
     }
-
-    .pix-option {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 16px;
-      margin-bottom: 12px;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-
-    .pix-option:hover {
-      background: rgba(0,0,0,0.05);
-    }
-
-    body.dark .pix-option:hover {
-      background: rgba(255,255,255,0.05);
-    }
-
-    .pix-label {
-      font-weight: bold;
-    }
-
-    .pix-value {
-      font-size: 14px;
-      opacity: 0.8;
-      word-break: break-all;
-    }
-
-    .checkbox {
-      margin: 20px 0;
+    .top {
+      display:flex; justify-content:space-between; align-items:center;
+      margin-bottom:16px;
     }
   </style>
 </head>
 <body>
 
-<div class="top-bar">
-  <h1>Selecione a chave Pix</h1>
-  <div class="toggle" onclick="toggleDarkMode()">🌙 Dark</div>
+<div class="top">
+  <h1>Gerar Pix</h1>
+  <button onclick="toggleDark()">🌙</button>
 </div>
 
-<div class="pix-option"
-     onclick="copiarPix('Nubank','53984851730')">
-  <div class="pix-label">Pix — Nubank</div>
-  <div class="pix-value">53984851730</div>
+<div class="card">
+  <label>Chave Pix</label>
+  <select id="chave">
+    <option value="53984851730|Nubank">Nubank – 53984851730</option>
+    <option value="iigabrields@gmail.com|Inter">Inter – iigabrields@gmail.com</option>
+  </select>
+
+  <label>Valor (R$)</label>
+  <input id="valor" type="number" step="0.01" placeholder="Ex: 25.00">
+
+  <label>Descrição (opcional)</label>
+  <input id="desc" placeholder="Pagamento Pix">
+
+  <button onclick="gerarPix()">Gerar Pix</button>
 </div>
 
-<div class="pix-option"
-     onclick="copiarPix('Inter','iigabrields@gmail.com')">
-  <div class="pix-label">Pix — Inter</div>
-  <div class="pix-value">iigabrields@gmail.com</div>
-</div>
-
-<div class="checkbox">
-  <label>
-    <input type="checkbox" id="enviarWhatsapp">
-    Enviar comprovante via WhatsApp
-  </label>
+<div class="card" id="resultado" style="display:none;">
+  <button onclick="copiar()">📋 Copiar Pix Copia e Cola</button>
+  <textarea id="pixCode" readonly></textarea>
+  <img id="qr" width="240" height="240">
 </div>
 
 <script>
-  const TELEFONE_WHATSAPP = "5553984851730";
+/* ================= CRC16 ================= */
+function crc16(payload) {
+  let crc = 0xFFFF;
+  for (let i = 0; i < payload.length; i++) {
+    crc ^= payload.charCodeAt(i) << 8;
+    for (let j = 0; j < 8; j++) {
+      crc = (crc & 0x8000) ? (crc << 1) ^ 0x1021 : crc << 1;
+    }
+  }
+  return (crc & 0xFFFF).toString(16).toUpperCase().padStart(4,'0');
+}
 
-  function copiarPix(alias, chave) {
-    navigator.clipboard.writeText(chave)
-      .then(() => {
-        if (document.getElementById("enviarWhatsapp").checked) {
-          abrirWhatsapp(alias);
-        } else {
-          alert("Chave Pix copiada");
-        }
-      })
-      .catch(() => {
-        alert("Não foi possível copiar a chave Pix");
-      });
+/* =============== EMV HELPERS ============== */
+function campo(id, valor) {
+  const tamanho = valor.length.toString().padStart(2,'0');
+  return id + tamanho + valor;
+}
+
+/* ============== GERAR PIX ================= */
+function gerarPix() {
+  const [chave, alias] = document.getElementById("chave").value.split("|");
+  const valor = document.getElementById("valor").value;
+  const desc  = document.getElementById("desc").value || "Pagamento Pix";
+
+  let payload =
+    "000201" +
+    campo("26",
+      campo("00","BR.GOV.BCB.PIX") +
+      campo("01", chave) +
+      campo("02", desc)
+    ) +
+    "52040000" +
+    "5303986";
+
+  if (valor) {
+    payload += campo("54", Number(valor).toFixed(2));
   }
 
-  function abrirWhatsapp(alias) {
-    const agora = new Date();
-    const hh = String(agora.getHours()).padStart(2, '0');
-    const mm = String(agora.getMinutes()).padStart(2, '0');
+  payload +=
+    "5802BR" +
+    campo("59","GABRIEL SEGUNDO") +
+    campo("60","SAO PAULO") +
+    "6304";
 
-    const mensagem =
-      `Pagamento iniciado via pix ${alias} às ${hh}:${mm}, ` +
-      `segue o comprovante (pague e compartilhe o comprovante na conversa)`;
+  const crc = crc16(payload);
+  const pix = payload + crc;
 
-    const url =
-      `https://wa.me/${TELEFONE_WHATSAPP}?text=` +
-      encodeURIComponent(mensagem);
+  document.getElementById("pixCode").value = pix;
+  document.getElementById("qr").src =
+    "https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=" +
+    encodeURIComponent(pix);
 
-    window.location.href = url;
-  }
+  document.getElementById("resultado").style.display = "block";
+}
 
-  function toggleDarkMode() {
-    document.body.classList.toggle("dark");
-    localStorage.setItem(
-      "darkMode",
-      document.body.classList.contains("dark") ? "1" : "0"
-    );
-  }
+/* ============== UTIL ================= */
+function copiar() {
+  navigator.clipboard.writeText(
+    document.getElementById("pixCode").value
+  );
+  alert("Pix Copia e Cola copiado");
+}
 
-  // restaura preferência
-  if (localStorage.getItem("darkMode") === "1") {
-    document.body.classList.add("dark");
-  }
+function toggleDark() {
+  document.body.classList.toggle("dark");
+}
 </script>
 
 </body>
