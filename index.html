@@ -6,42 +6,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
   <style>
-    :root {
-      --bg:#f5f5f5; --card:#fff; --text:#000; --border:#ddd;
-    }
-    body.dark {
-      --bg:#121212; --card:#1e1e1e; --text:#fff; --border:#333;
-    }
-    body {
-      margin:0; padding:24px; font-family:Arial,sans-serif;
-      background:var(--bg); color:var(--text);
-    }
-    .card {
-      background:var(--card); border:1px solid var(--border);
-      border-radius:8px; padding:16px; margin-bottom:16px;
-    }
-    h1 { font-size:20px; margin-bottom:12px; }
+    :root { --bg:#f5f5f5; --card:#fff; --text:#000; --border:#ddd; }
+    body.dark { --bg:#121212; --card:#1e1e1e; --text:#fff; --border:#333; }
+    body { margin:0; padding:24px; font-family:Arial,sans-serif;
+           background:var(--bg); color:var(--text); }
+    .card { background:var(--card); border:1px solid var(--border);
+            border-radius:8px; padding:16px; margin-bottom:16px; }
+    h1 { font-size:20px; }
     label { display:block; margin-top:12px; font-weight:bold; }
-    select, input, button {
-      width:100%; padding:10px; margin-top:6px;
-      font-size:16px;
-    }
+    select, input, button { width:100%; padding:10px; margin-top:6px; font-size:16px; }
     button { cursor:pointer; }
     img { display:block; margin:16px auto; }
-    textarea {
-      width:100%; height:120px; margin-top:12px;
-      font-size:12px;
-    }
-    .top {
-      display:flex; justify-content:space-between; align-items:center;
-      margin-bottom:16px;
-    }
-    footer {
-      text-align:center;
-      font-size:12px;
-      opacity:.6;
-      margin-top:24px;
-    }
+    textarea { width:100%; height:120px; margin-top:12px; font-size:12px; }
+    .top { display:flex; justify-content:space-between; align-items:center; }
+    footer { text-align:center; font-size:12px; opacity:.6; margin-top:24px; }
   </style>
 </head>
 <body>
@@ -54,7 +32,7 @@
 <div class="card">
   <label>Chave Pix</label>
   <select id="chave">
-    <option value="53984851730|Nubank">Nubank – 53984851730</option>
+    <option value="+5553984851730|Nubank">Nubank – +55 53 98485-1730</option>
     <option value="iigabrields@gmail.com|Inter">Inter – iigabrields@gmail.com</option>
   </select>
 
@@ -70,12 +48,10 @@
   <img id="qr" width="240" height="240">
 </div>
 
-<footer>
-  Versão 0.6
-</footer>
+<footer>Versão 0.7</footer>
 
 <script>
-/* ================= CRC16 ================= */
+/* ===== CRC16 ===== */
 function crc16(payload) {
   let crc = 0xFFFF;
   for (let i = 0; i < payload.length; i++) {
@@ -87,15 +63,14 @@ function crc16(payload) {
   return (crc & 0xFFFF).toString(16).toUpperCase().padStart(4,'0');
 }
 
-/* =============== EMV HELPERS ============== */
+/* ===== EMV ===== */
 function campo(id, valor) {
-  const tamanho = valor.length.toString().padStart(2,'0');
-  return id + tamanho + valor;
+  return id + valor.length.toString().padStart(2,'0') + valor;
 }
 
-/* ============== GERAR PIX ================= */
+/* ===== GERAR PIX ===== */
 function gerarPix() {
-  const [chave] = document.getElementById("chave").value.split("|");
+  const chave = document.getElementById("chave").value.split("|")[0];
   const valor = document.getElementById("valor").value;
 
   let payload =
@@ -107,17 +82,13 @@ function gerarPix() {
     "52040000" +
     "5303986";
 
-  if (valor) {
-    payload += campo("54", Number(valor).toFixed(2));
-  }
+  if (valor) payload += campo("54", Number(valor).toFixed(2));
 
   payload +=
     "5802BR" +
     campo("59","GABRIEL SEGUNDO") +
     campo("60","SAO PAULO") +
-    campo("62",
-      campo("05","***")
-    ) +
+    campo("62", campo("05","***")) +
     "6304";
 
   const pix = payload + crc16(payload);
@@ -130,14 +101,11 @@ function gerarPix() {
   document.getElementById("resultado").style.display = "block";
 }
 
-/* ============== UTIL ================= */
+/* ===== UTIL ===== */
 function copiar() {
-  navigator.clipboard.writeText(
-    document.getElementById("pixCode").value
-  );
+  navigator.clipboard.writeText(document.getElementById("pixCode").value);
   alert("Pix Copia e Cola copiado");
 }
-
 function toggleDark() {
   document.body.classList.toggle("dark");
 }
