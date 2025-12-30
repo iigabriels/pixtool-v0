@@ -1,27 +1,62 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <title>Gerador Pix</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta charset="UTF-8">
+<title>Gerar Pix</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <style>
-    :root { --bg:#f5f5f5; --card:#fff; --text:#000; --border:#ddd; }
-    body.dark { --bg:#121212; --card:#1e1e1e; --text:#fff; --border:#333; }
-    body { margin:0; padding:24px; font-family:Arial,sans-serif;
-           background:var(--bg); color:var(--text); }
-    .card { background:var(--card); border:1px solid var(--border);
-            border-radius:8px; padding:16px; margin-bottom:16px; }
-    h1 { font-size:20px; }
-    label { display:block; margin-top:12px; font-weight:bold; }
-    select, input, button { width:100%; padding:10px; margin-top:6px; font-size:16px; }
-    button { cursor:pointer; }
-    img { display:block; margin:16px auto; }
-    textarea { width:100%; height:120px; margin-top:12px; font-size:12px; }
-    .top { display:flex; justify-content:space-between; align-items:center; }
-    footer { text-align:center; font-size:12px; opacity:.6; margin-top:24px; }
-  </style>
+<style>
+:root {
+  --bg:#f5f5f5; --card:#fff; --text:#000; --border:#ddd;
+}
+body.dark {
+  --bg:#121212; --card:#1e1e1e; --text:#fff; --border:#333;
+}
+body {
+  margin:0; padding:24px;
+  font-family:Arial,sans-serif;
+  background:var(--bg); color:var(--text);
+}
+.card {
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:8px;
+  padding:16px;
+  margin-bottom:16px;
+}
+.top {
+  display:flex; justify-content:space-between; align-items:center;
+}
+label { display:block; margin-top:12px; font-weight:bold; }
+select, input, button, textarea {
+  width:100%; padding:10px; margin-top:6px; font-size:16px;
+}
+button { cursor:pointer; }
+img { display:block; margin:16px auto; }
+textarea { height:110px; font-size:12px; }
+
+body.dark input,
+body.dark select,
+body.dark textarea {
+  background:#0f0f0f; color:#fff; border:1px solid #444;
+}
+body.dark input::placeholder { color:#9ca3af; }
+body.dark input:focus,
+body.dark select:focus {
+  border-color:#facc15;
+  box-shadow:0 0 0 1px #facc15;
+  outline:none;
+}
+
+footer {
+  text-align:center;
+  font-size:12px;
+  opacity:.6;
+  margin-top:24px;
+}
+</style>
 </head>
+
 <body>
 
 <div class="top">
@@ -36,49 +71,82 @@
     <option value="iigabrields@gmail.com|Inter">Inter – iigabrields@gmail.com</option>
   </select>
 
-  <label>Valor (R$)</label>
+  <label>Valor (R$) — opcional</label>
   <input id="valor" type="number" step="0.01" placeholder="Ex: 25.00">
 
   <button onclick="gerarPix()">Gerar Pix</button>
 </div>
 
-<div class="card" id="resultado" style="display:none;">
-  <button onclick="copiar()">📋 Copiar Pix Copia e Cola</button>
+<div class="card" id="cardPagamento" style="display:none;">
+  <div style="display:flex; gap:24px; flex-wrap:wrap;">
+
+    <!-- QR + ações -->
+    <div style="flex:1; min-width:260px; text-align:center;">
+      <img id="qr" width="240" height="240">
+
+      <button onclick="copiarPix()">📋 Copiar Pix Copia e Cola</button>
+
+      <div style="margin-top:16px;">
+        <label>
+          <input type="checkbox" id="enviarWhatsapp">
+          Enviar comprovante via WhatsApp
+        </label>
+
+        <button onclick="enviarComprovante()" style="margin-top:8px;">
+          📲 Enviar comprovante
+        </button>
+      </div>
+    </div>
+
+    <!-- Dados -->
+    <div style="flex:1; min-width:260px;">
+      <h3>Dados do pagamento</h3>
+      <table style="width:100%; font-size:14px;">
+        <tr><td><b>Beneficiário</b></td><td>Gabriel da Silva Segundo</td></tr>
+        <tr><td><b>Banco</b></td><td id="dpBanco"></td></tr>
+        <tr><td><b>Chave Pix</b></td><td id="dpChave"></td></tr>
+        <tr><td><b>Identificador</b></td><td id="dpId"></td></tr>
+        <tr><td><b>Valor</b></td><td id="dpValor"></td></tr>
+      </table>
+    </div>
+
+  </div>
+
   <textarea id="pixCode" readonly></textarea>
-  <img id="qr" width="240" height="240">
 </div>
 
-<footer>Versão 0.7</footer>
+<footer>Versão 0.8</footer>
 
 <script>
+let txidAtual = null;
+
 /* ===== CRC16 ===== */
 function crc16(payload) {
   let crc = 0xFFFF;
-  for (let i = 0; i < payload.length; i++) {
+  for (let i=0;i<payload.length;i++) {
     crc ^= payload.charCodeAt(i) << 8;
-    for (let j = 0; j < 8; j++) {
-      crc = (crc & 0x8000) ? (crc << 1) ^ 0x1021 : crc << 1;
-    }
+    for (let j=0;j<8;j++)
+      crc = (crc & 0x8000) ? (crc<<1)^0x1021 : crc<<1;
   }
   return (crc & 0xFFFF).toString(16).toUpperCase().padStart(4,'0');
 }
 
-/* ===== EMV ===== */
-function campo(id, valor) {
-  return id + valor.length.toString().padStart(2,'0') + valor;
+function campo(id,val) {
+  return id + val.length.toString().padStart(2,'0') + val;
 }
 
 /* ===== GERAR PIX ===== */
 function gerarPix() {
-  const chave = document.getElementById("chave").value.split("|")[0];
+  const select = document.getElementById("chave");
+  const chave = select.value.split("|")[0];
+  const banco = select.selectedOptions[0].text.split("–")[0].trim();
   const valor = document.getElementById("valor").value;
+
+  txidAtual = crypto.randomUUID().slice(0,8).toUpperCase();
 
   let payload =
     "000201010212" +
-    campo("26",
-      campo("00","BR.GOV.BCB.PIX") +
-      campo("01", chave)
-    ) +
+    campo("26", campo("00","BR.GOV.BCB.PIX") + campo("01",chave)) +
     "52040000" +
     "5303986";
 
@@ -93,19 +161,49 @@ function gerarPix() {
 
   const pix = payload + crc16(payload);
 
-  document.getElementById("pixCode").value = pix;
   document.getElementById("qr").src =
     "https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=" +
     encodeURIComponent(pix);
 
-  document.getElementById("resultado").style.display = "block";
+  document.getElementById("pixCode").value = pix;
+
+  document.getElementById("dpBanco").innerText = banco;
+  document.getElementById("dpChave").innerText = chave;
+  document.getElementById("dpId").innerText = txidAtual;
+  document.getElementById("dpValor").innerText =
+    valor ? `R$ ${Number(valor).toFixed(2).replace('.',',')}` : "—";
+
+  document.getElementById("cardPagamento").style.display = "block";
 }
 
-/* ===== UTIL ===== */
-function copiar() {
+/* ===== AÇÕES ===== */
+function copiarPix() {
   navigator.clipboard.writeText(document.getElementById("pixCode").value);
   alert("Pix Copia e Cola copiado");
 }
+
+function enviarComprovante() {
+  if (!document.getElementById("enviarWhatsapp").checked) {
+    alert("Marque a opção de envio via WhatsApp.");
+    return;
+  }
+
+  const msg =
+`Pagamento via Pix iniciado
+Beneficiário: Gabriel da Silva Segundo
+Banco: ${dpBanco.innerText}
+Chave: ${dpChave.innerText}
+ID: ${txidAtual}
+Valor: ${dpValor.innerText}
+
+Envio do comprovante referente a este pagamento.`;
+
+  window.open(
+    "https://wa.me/5553984851730?text=" + encodeURIComponent(msg),
+    "_blank"
+  );
+}
+
 function toggleDark() {
   document.body.classList.toggle("dark");
 }
