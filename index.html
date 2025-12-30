@@ -90,14 +90,13 @@ function campo(id, valor) {
 function gerarPix() {
   const [chave, alias] = document.getElementById("chave").value.split("|");
   const valor = document.getElementById("valor").value;
-  const desc  = document.getElementById("desc").value || "Pagamento Pix";
+  const desc  = document.getElementById("desc").value || "PAGAMENTO";
 
- let payload =
-  "000201010212" +
+  let payload =
+    "000201010212" +
     campo("26",
       campo("00","BR.GOV.BCB.PIX") +
-      campo("01", chave) +
-      campo("02", desc)
+      campo("01", chave)
     ) +
     "52040000" +
     "5303986";
@@ -110,10 +109,12 @@ function gerarPix() {
     "5802BR" +
     campo("59","GABRIEL SEGUNDO") +
     campo("60","SAO PAULO") +
+    campo("62",
+      campo("05", desc.substring(0,25))
+    ) +
     "6304";
 
-  const crc = crc16(payload);
-  const pix = payload + crc;
+  const pix = payload + crc16(payload);
 
   document.getElementById("pixCode").value = pix;
   document.getElementById("qr").src =
